@@ -4,7 +4,7 @@ import collections
 import queue
 from network import *
 
-ports = queue.Queue(maxsize=2500)
+ports = queue.Queue(maxsize=45000)
 
 IPPROTO_RDT = 0xfe
 
@@ -14,11 +14,12 @@ class RDTSocket(StreamSocket):
         # Other initialization here
 
     def bind(self, port):
+        print(port)
         # check for address in use
-        if port in ports.queue:
+        if (self, port) in ports.queue:
             raise Socket.AddressInUse
         self.port = port
-        ports.put(port)
+        ports.put(self, port)
 
     def listen(self):
         pass
