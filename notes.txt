@@ -1,1 +1,17 @@
-Hello
+1. Look over the unit tests
+2. check out book section 2.7 on socket API
+3. look online for help with socket api
+4. help text is also good.
+
+segment structure:
+	two helper functions
+	1) takes all payload fields and returns segment bytes -> output
+	2) does the opposite <- input
+
+	b",".join(....)
+	.split(",",# of times to split)
+
+
+different threads:
+	one thread should be "get"-ing from a queue
+	while another thread "puts" on the queue
