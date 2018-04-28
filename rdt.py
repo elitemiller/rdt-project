@@ -67,12 +67,12 @@ class RDTSocket(StreamSocket):
             self.bind(self.proto.randomPort())
         self.connected = True
         #self.send(other stuff)
-        self.proto.output(",".join((str(self.port), str(addr[1]), str(0), str(5), "ACK", "help me please")).encode(),addr[0])
+        self.proto.output(",".join((str(self.port), str(addr[1]), str(0), str(5), "ACK", "test-oneway")).encode(),addr[0])
 
     def send(self, data):
         if not self.connected:
             raise StreamSocket.NotConnected
-        #self.proto.output(stuff)
+        self.proto.output(data, self.remoteAddr)
         #self.deliver(data)
         pass
 
@@ -102,6 +102,7 @@ class RDTProtocol(Protocol):
         flag = data[4]
         payload = data[5]
         self.ports[int(dstPort)].queue.put((rhost, int(srcPort)))
+        self.ports[int(dstPort)].deliver(payload.encode())
         #if flag == 'SYN' or flag == 'SYNACK':
             #if dstPort not in self.conns:
                 #self.listeningSocks[dstPort].queue.put((rhost, srcPort))
