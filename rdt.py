@@ -3,6 +3,7 @@ import threading
 import collections
 import queue
 from network import *
+import random
 
 IPPROTO_RDT = 0xfe
 
@@ -48,29 +49,31 @@ class RDTSocket(StreamSocket):
         else:
             self.accepted = True
             # get data
-            #data = self.queue.get()
+            data = self.queue.get()
             # clone socket
-            #sock = self.proto.socket()
+            sock = self.proto.socket()
             # set new socket info
-            #sock.bind(self.port)
-            #sock.remoteAddr = data[0]
-            #sock.remotePort = data[1]
-            #sock.accepted = True
-            return (self, (1, 2))
+            sock.bind(self.proto.randomPort())
+            sock.remoteAddr = data[0]
+            sock.remotePort = data[1]
+            sock.accepted = True
+            return (self, (sock.remoteAddr, sock.remotePort))
 
     def connect(self, addr):
         # addr[0] = ip, addr[1] = port
         if self.connected:
             raise StreamSocket.AlreadyConnected
+        if not self.bound:
+            self.bind(self.proto.randomPort())
         self.connected = True
         #self.send(other stuff)
-        print(addr)
-        self.output(b'stuff', addr)
+        self.proto.output(",".join((str(self.port), str(addr[1]), str(0), str(5), "ACK", "help me please")).encode(),addr[0])
 
     def send(self, data):
         if not self.connected:
             raise StreamSocket.NotConnected
         #self.proto.output(stuff)
+        #self.deliver(data)
         pass
 
 class RDTProtocol(Protocol):
@@ -98,7 +101,15 @@ class RDTProtocol(Protocol):
         ackNum = data[3]
         flag = data[4]
         payload = data[5]
-        if flag == 'SYN' or flag == 'SYNACK':
-            if dstPort not in self.conns:
-                self.listeningSocks[dstPort].queue.put((rhost, srcPort))
+        self.ports[int(dstPort)].queue.put((rhost, int(srcPort)))
+        #if flag == 'SYN' or flag == 'SYNACK':
+            #if dstPort not in self.conns:
+                #self.listeningSocks[dstPort].queue.put((rhost, srcPort))
+        pass
 
+    # random port number
+    def randomPort(self):
+        rando_num = random.randint(51245, 64999)
+        while(rando_num in self.ports):
+            rando_num = random.randit(51245, 64999)
+        return rando_num
