@@ -11,6 +11,9 @@ class RDTSocket(StreamSocket):
         super().__init__(*args, **kwargs)
         self.port = None
         self.remoteAddr = None
+        self.bound = False
+        self.accepted = False
+        self.connected = False
         self.listening = False
         self.queue = queue.Queue()
         # maybe sequence numbers later?
@@ -22,45 +25,52 @@ class RDTSocket(StreamSocket):
     # If this is a connected stream socket, it should raise 
     #    StreamSocket.AlreadyConnected.
     def bind(self, port):
-        if self.remoteAddr != None:
-            raise StreamSocket.AlreadyConnected
         # check for address in use
-        if port in self.proto.ports:
+        if self.accepted or self.connected:
+            raise StreamSocket.AlreadyConnected
+        if self.listening or port in self.proto.ports:
             raise Socket.AddressInUse
         self.port = port
-        self.proto.ports.append(port)
+        self.proto.ports[self.port] = self
+        self.bound = True
 
     def listen(self):
-        if self.port == None:
-            raise StreamSocket.NotBound
-        if self.remoteAddr != None:
+        if self.connected:
             raise StreamSocket.AlreadyConnected
+        if not self.bound:
+            raise StreamSocket.NotBound
         self.listening = True
-        self.proto.listeningSocks.append((self,self.port))
+        self.proto.listeningSocks[self.port] = self
 
     def accept(self):
         if not self.listening:
-            raise StreamSocket.AlreadyConnected
+            raise StreamSocket.NotListening
         else:
+            self.accepted = True
             # get data
-            data = self.queue.get()
+            #data = self.queue.get()
             # clone socket
-            sock = self.proto.socket()
+            #sock = self.proto.socket()
             # set new socket info
-            sock.port = self.port
-            sock.remoteAddr = data[0]
-            sock.remotePort = data[1]
+            #sock.bind(self.port)
+            #sock.remoteAddr = data[0]
+            #sock.remotePort = data[1]
+            #sock.accepted = True
+            return (self, (1, 2))
 
     def connect(self, addr):
         # addr[0] = ip, addr[1] = port
-        if self.remoteAddr != None:
+        if self.connected:
             raise StreamSocket.AlreadyConnected
-        pass
-
-    def input(self, seg, src):
-        pass
+        self.connected = True
+        #self.send(other stuff)
+        print(addr)
+        self.output(b'stuff', addr)
 
     def send(self, data):
+        if not self.connected:
+            raise StreamSocket.NotConnected
+        #self.proto.output(stuff)
         pass
 
 class RDTProtocol(Protocol):
@@ -71,8 +81,8 @@ class RDTProtocol(Protocol):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.conns = {}
-        self.ports = []
-        self.listeningSocks = []
+        self.ports = {}
+        self.listeningSocks = {}
         # Other initialization here
 
     # Called when a segment is received for this protocol from
@@ -90,5 +100,5 @@ class RDTProtocol(Protocol):
         payload = data[5]
         if flag == 'SYN' or flag == 'SYNACK':
             if dstPort not in self.conns:
-                pass
+                self.listeningSocks[dstPort].queue.put((rhost, srcPort))
 
