@@ -47,7 +47,7 @@ class RDTSocket(StreamSocket):
         if not self.listening:
             raise StreamSocket.NotListening
         else:
-            self.accepted = True
+            #self.accepted = True
             # get data
             data = self.queue.get()
             # clone socket
@@ -55,9 +55,17 @@ class RDTSocket(StreamSocket):
             # set new socket info
             sock.bind(self.proto.randomPort())
             sock.remoteAddr = data[0]
-            sock.remotePort = data[1]
+            sock.remotePort = data[1][0]
             sock.accepted = True
-            return (self, (sock.remoteAddr, sock.remotePort))
+            #print("\n" +data[1][4] + " received in accept from " + str(sock.remoteAddr) + ", "+ str(sock.remotePort))
+            print(data)
+            if data[1][4] == "SYN":
+                #print("\nSYNACK sent in accept from " + str(sock.proto.host.ip) + ", "+ str(sock.port))
+                sock.proto.output(",".join((str(sock.port), str(sock.remotePort), "seq_num", "ack_num", "SYNACK", "")).encode(), sock.remoteAddr)
+                check = sock.queue.get()
+                print(check)
+                if check[1][4] == "ACK":
+                    return (sock, (sock.remoteAddr, int(sock.remotePort)))
 
     def connect(self, addr):
         # addr[0] = ip, addr[1] = port
@@ -65,16 +73,23 @@ class RDTSocket(StreamSocket):
             raise StreamSocket.AlreadyConnected
         if not self.bound:
             self.bind(self.proto.randomPort())
-        self.connected = True
-        #self.send(other stuff)
-        self.proto.output(",".join((str(self.port), str(addr[1]), str(0), str(5), "ACK", "test-oneway")).encode(),addr[0])
+        self.remoteAddr = addr[0]
+        self.remotePort = addr[1]
+        self.proto.output(",".join((str(self.port), str(addr[1]), "seq_num", "ack_num", "SYN", "")).encode(),addr[0])
+        check = self.queue.get()
+        #print(check[4] + "in connect")
+        #print("\n" +check[4] + " received in connect for " + str(self.proto.host.ip) + ", "+ str(self.port))
+        if check[1][4] == "SYNACK":
+            self.remotePort = check[1][0]
+            self.proto.output(",".join((str(self.port), str(check[1][0]), "seq_num", "ack_num", "ACK", "")).encode(), addr[0])
+            self.connected = True
 
     def send(self, data):
         if not self.connected:
             raise StreamSocket.NotConnected
-        self.proto.output(data, self.remoteAddr)
+        self.proto.output(",".join((str(self.port), str(self.remotePort), "seq_num", "ack_num", ",")).encode()+data, self.remoteAddr)
+        #print(data)
         #self.deliver(data)
-        pass
 
 class RDTProtocol(Protocol):
     PROTO_ID = IPPROTO_RDT
@@ -95,15 +110,21 @@ class RDTProtocol(Protocol):
     #    source address to the input() method on that socket.
     def input(self, seg, rhost):
         data = seg.decode().split(",", 5)
+        print(data)
+        print("help")
         srcPort = data[0]
         dstPort = data[1]
         seqNum = data[2]
         ackNum = data[3]
         flag = data[4]
         payload = data[5]
-        self.ports[int(dstPort)].queue.put((rhost, int(srcPort)))
-        self.ports[int(dstPort)].deliver(payload.encode())
-        #if flag == 'SYN' or flag == 'SYNACK':
+        #print("\n" +data[4] + " received in input from " + str(rhost) + ", "+ str(srcPort))
+        if flag == 'SYN' or flag == 'SYNACK' or flag == 'ACK':
+            self.ports[int(dstPort)].queue.put((rhost, data))
+        else:
+            print("no ACKs")
+            self.ports[int(dstPort)].deliver((data[5]).encode())
+        #self.ports[int(dstPort)].deliver(payload.encode())
             #if dstPort not in self.conns:
                 #self.listeningSocks[dstPort].queue.put((rhost, srcPort))
         pass
