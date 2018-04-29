@@ -58,13 +58,14 @@ class RDTSocket(StreamSocket):
             sock.remotePort = data[1][0]
             sock.accepted = True
             #print("\n" +data[1][4] + " received in accept from " + str(sock.remoteAddr) + ", "+ str(sock.remotePort))
-            print(data)
+            #print(data)
             if data[1][4] == "SYN":
                 #print("\nSYNACK sent in accept from " + str(sock.proto.host.ip) + ", "+ str(sock.port))
                 sock.proto.output(",".join((str(sock.port), str(sock.remotePort), "seq_num", "ack_num", "SYNACK", "")).encode(), sock.remoteAddr)
                 check = sock.queue.get()
-                print(check)
+                #print(check)
                 if check[1][4] == "ACK":
+                    sock.connected = True
                     return (sock, (sock.remoteAddr, int(sock.remotePort)))
 
     def connect(self, addr):
@@ -110,8 +111,8 @@ class RDTProtocol(Protocol):
     #    source address to the input() method on that socket.
     def input(self, seg, rhost):
         data = seg.decode().split(",", 5)
-        print(data)
-        print("help")
+        #print(data)
+        #print("help")
         srcPort = data[0]
         dstPort = data[1]
         seqNum = data[2]
@@ -122,12 +123,11 @@ class RDTProtocol(Protocol):
         if flag == 'SYN' or flag == 'SYNACK' or flag == 'ACK':
             self.ports[int(dstPort)].queue.put((rhost, data))
         else:
-            print("no ACKs")
+            #print("no ACKs")
             self.ports[int(dstPort)].deliver((data[5]).encode())
         #self.ports[int(dstPort)].deliver(payload.encode())
             #if dstPort not in self.conns:
                 #self.listeningSocks[dstPort].queue.put((rhost, srcPort))
-        pass
 
     # random port number
     def randomPort(self):
